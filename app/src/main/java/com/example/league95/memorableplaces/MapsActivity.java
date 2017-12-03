@@ -4,6 +4,7 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Geocoder;
@@ -26,6 +27,7 @@ import com.google.android.gms.maps.model.MarkerOptions;
 
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -46,7 +48,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     == PackageManager.PERMISSION_GRANTED) {
                 locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
                 Location lastKnown = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-                processLocation(lastKnown, "Your location");
+                processLocation(lastKnown, "Your locations");
             }
         }
     }
@@ -57,7 +59,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
             mMap.clear();
             //Only show marker if they see
-            if (!title.equals("Your location")) {
+            if (!title.equals("Your locations")) {
                 mMap.addMarker(new MarkerOptions().position(latLng).title(title));
             }
 
@@ -97,13 +99,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         //Intent from the other class
         Intent intent = getIntent();
         if (intent.getIntExtra("placeNumber", 0) == 0) {
-            //Instantiate location manager here
+            //Instantiate locations manager here
             locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
-            //Instantiate location listener
+            //Instantiate locations listener
             locationListener = new LocationListener() {
                 @Override
                 public void onLocationChanged(Location location) {
-                    processLocation(location, "Your location");
+                    processLocation(location, "Your locations");
                 }
 
                 @Override
@@ -129,17 +131,17 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         == PackageManager.PERMISSION_GRANTED) {
                     locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
                     Location lastKnown = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-                    processLocation(lastKnown, "Your location");
+                    processLocation(lastKnown, "Your locations");
                 } else {
                     ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1);
                 }
             }
         } else {
-            //if it's not the initial location
+            //if it's not the initial locations
             Location placeLocation = new Location(LocationManager.GPS_PROVIDER);
-            placeLocation.setLatitude(MainActivity.location.get(intent.getIntExtra("placeNumber",
+            placeLocation.setLatitude(MainActivity.locations.get(intent.getIntExtra("placeNumber",
                     0)).latitude);
-            placeLocation.setLongitude(MainActivity.location.get(intent.getIntExtra("placeNumber",
+            placeLocation.setLongitude(MainActivity.locations.get(intent.getIntExtra("placeNumber",
                     0)).longitude);
             processLocation(placeLocation, MainActivity.places.get(intent.getIntExtra("placeNumber", 0)));
 
@@ -177,11 +179,30 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }
 
         //Add the results to our array list
-        MainActivity.location.add(latLng);
+        MainActivity.locations.add(latLng);
         MainActivity.places.add(result);
         //This is how we update list view.
         MainActivity.arrayAdapter.notifyDataSetChanged();
 
+        /**
+         * We start by saving items here
+         */
+        SharedPreferences sharedPreferences = this.getSharedPreferences("com.example.league95.memorableplaces", Context.MODE_PRIVATE);
+        try {
+            //To save latlng, it's tricky, but we do it like this
+            ArrayList<String> latitudes = new ArrayList<>();
+            ArrayList<String> longitudes = new ArrayList<>();
+            for (LatLng coordinates : MainActivity.locations)
+            {
+                latitudes.add(String.valueOf(coordinates.latitude));
+                longitudes.add(String.valueOf(coordinates.longitude));
+            }
+            sharedPreferences.edit().putString("places", ObjectSerializer.serialize(MainActivity.places)).apply();
+            sharedPreferences.edit().putString("latitudes", ObjectSerializer.serialize(latitudes)).apply();
+            sharedPreferences.edit().putString("longitudes", ObjectSerializer.serialize(longitudes)).apply();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         mMap.addMarker(new MarkerOptions().position(latLng).title(result));
     }
 }
